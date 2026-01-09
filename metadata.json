@@ -1,0 +1,5 @@
+{
+  "name": "Quién es el Impostor",
+  "description": "Un juego social de deducción donde un impostor recibe una pista mientras los demás ven la palabra secreta.",
+  "requestFramePermissions": []
+}
