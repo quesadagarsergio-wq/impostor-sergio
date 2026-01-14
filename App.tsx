@@ -1,13 +1,11 @@
-
 import React, { useState } from 'react';
 import { WordManager } from './components/WordManager';
 import { GameFlow } from './components/GameFlow';
 import { Button } from './components/Button';
-import { ImageGenerator } from './components/ImageGenerator';
-import { BrainCircuit, BookOpen, Ghost, Palette } from 'lucide-react';
+import { BrainCircuit, BookOpen, Ghost } from 'lucide-react';
 
 export default function App() {
-  const [view, setView] = useState<'HOME' | 'GAME' | 'MANAGE' | 'IMAGE'>('HOME');
+  const [view, setView] = useState<'HOME' | 'GAME' | 'MANAGE'>('HOME');
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30 relative">
@@ -65,17 +63,7 @@ export default function App() {
                 fullWidth
                 className="py-4 border border-slate-700 hover:border-slate-500 bg-slate-900/40 backdrop-blur-sm"
               >
-                <BookOpen size={20} /> Biblioteca de Palabras
-              </Button>
-
-              {/* Added: Navigation button for AI Image Laboratory */}
-              <Button 
-                variant="secondary" 
-                onClick={() => setView('IMAGE')} 
-                fullWidth
-                className="py-4 border border-slate-700 hover:border-slate-500 bg-slate-900/40 backdrop-blur-sm bg-gradient-to-r from-indigo-900/10 to-emerald-900/10"
-              >
-                <Palette size={20} className="text-emerald-400" /> Laboratorio de Arte IA
+                <BookOpen size={20} /> Biblioteca
               </Button>
             </div>
 
@@ -91,11 +79,6 @@ export default function App() {
 
         {view === 'GAME' && (
           <GameFlow onExit={() => setView('HOME')} />
-        )}
-
-        {/* Added: View for AI Image Generation */}
-        {view === 'IMAGE' && (
-          <ImageGenerator onBack={() => setView('HOME')} />
         )}
       </main>
 
