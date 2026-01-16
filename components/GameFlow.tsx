@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { GamePhase, Player, WordPair } from '../types';
+import { GamePhase, Player, WordPair, WordPack } from '../types';
 import { getStoredWords } from '../services/storage';
+import { OFFICIAL_PACKS } from '../constants';
 import { Button } from './Button';
-import { Users, Eye, EyeOff, UserCheck, RefreshCw, Home, Play, AlertCircle, Pencil, Skull, Minus, Plus, Lightbulb, LightbulbOff } from 'lucide-react';
+import { Users, Eye, EyeOff, UserCheck, RefreshCw, Home, Play, Pencil, Skull, Minus, Plus, Lightbulb, LightbulbOff, Book, FolderOpen, ChevronRight } from 'lucide-react';
 
 interface GameFlowProps {
   onExit: () => void;
@@ -13,6 +14,7 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
   const [playerCount, setPlayerCount] = useState(3);
   const [impostorCount, setImpostorCount] = useState(1);
   const [useHints, setUseHints] = useState(true);
+  const [wordSource, setWordSource] = useState<'MY_LIBRARY' | string>('MY_LIBRARY');
   const [customNames, setCustomNames] = useState<string[]>(
     Array.from({ length: 3 }, (_, i) => `Jugador ${i + 1}`)
   );
@@ -20,14 +22,13 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentWord, setCurrentWord] = useState<WordPair | null>(null);
   const [turnIndex, setTurnIndex] = useState(0);
-  const [revealing, setRevealing] = useState(false); // Controls the "Hold to show" logic
+  const [revealing, setRevealing] = useState(false);
 
   // Handle player count slider change and sync names array
   const handlePlayerCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const count = parseInt(e.target.value);
     setPlayerCount(count);
     
-    // Ensure impostor count is valid for new player count (max half players rounded down, but at least 1)
     const maxImpostors = Math.max(1, Math.floor((count - 1) / 2));
     if (impostorCount > maxImpostors) {
         setImpostorCount(maxImpostors);
@@ -36,12 +37,10 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
     setCustomNames(prev => {
       const newNames = [...prev];
       if (count > prev.length) {
-        // Add new default names
         for (let i = prev.length; i < count; i++) {
            newNames.push(`Jugador ${i + 1}`);
         }
       } else {
-        // Remove excess names
         return newNames.slice(0, count);
       }
       return newNames;
@@ -54,19 +53,26 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
     setCustomNames(newNames);
   };
   
-  // Setup Phase
   const handleStartGame = () => {
-    const words = getStoredWords();
-    if (words.length === 0) {
-      alert("No hay palabras. Ve a gestión para añadir algunas.");
+    let pool: WordPair[] = [];
+    
+    if (wordSource === 'MY_LIBRARY') {
+      pool = getStoredWords();
+    } else {
+      const pack = OFFICIAL_PACKS.find(p => p.id === wordSource);
+      pool = pack ? pack.words : [];
+    }
+
+    if (pool.length === 0) {
+      alert("No hay palabras en esta fuente. Elige otra o añade palabras a tu biblioteca.");
       return;
     }
 
     // Pick random word
-    const randomWord = words[Math.floor(Math.random() * words.length)];
+    const randomWord = pool[Math.floor(Math.random() * pool.length)];
     setCurrentWord(randomWord);
 
-    // Setup players using custom names
+    // Setup players
     const newPlayers: Player[] = customNames.map((name, i) => ({
       id: i + 1,
       name: name.trim() || `Jugador ${i + 1}`,
@@ -76,13 +82,11 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
 
     // Assign Impostors randomly
     const indices = Array.from({ length: playerCount }, (_, i) => i);
-    // Shuffle indices
     for (let i = indices.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [indices[i], indices[j]] = [indices[j], indices[i]];
     }
     
-    // Select first N indices as impostors
     for (let i = 0; i < impostorCount; i++) {
         newPlayers[indices[i]].isImpostor = true;
     }
@@ -92,7 +96,6 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
     setPhase(GamePhase.REVEAL);
   };
 
-  // Reveal Phase Logic
   const handleNextTurn = () => {
     setRevealing(false);
     if (turnIndex < players.length - 1) {
@@ -102,7 +105,6 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
     }
   };
 
-  // Voting Phase
   const handleVote = (playerId: number) => {
     const updatedPlayers = players.map(p => 
       p.id === playerId ? { ...p, votesReceived: p.votesReceived + 1 } : p
@@ -116,17 +118,54 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
 
   const maxImpostors = Math.max(1, Math.floor((playerCount - 1) / 2));
 
-  // ---------------- RENDERING ----------------
-
   if (phase === GamePhase.SETUP) {
     return (
-      <div className="flex flex-col items-center h-full p-6 animate-fade-in max-w-md mx-auto w-full">
-        <h2 className="text-3xl font-bold mb-6 text-center">Configurar Partida</h2>
+      <div className="flex flex-col h-full p-6 animate-fade-in max-w-md mx-auto w-full overflow-y-auto custom-scrollbar">
+        <h2 className="text-3xl font-bold mb-6 text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Configuración</h2>
         
-        {/* Slider Card */}
+        {/* Source Selection */}
+        <div className="w-full bg-slate-800 p-5 rounded-2xl mb-4 border border-slate-700 shadow-xl">
+           <label className="block text-slate-500 mb-4 text-[10px] font-bold tracking-widest uppercase">
+            Fuente de Palabras
+          </label>
+          <div className="space-y-2">
+            <button
+              onClick={() => setWordSource('MY_LIBRARY')}
+              className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${wordSource === 'MY_LIBRARY' ? 'bg-indigo-600/20 border-indigo-500' : 'bg-slate-900/50 border-slate-700 hover:border-slate-600'}`}
+            >
+              <div className="flex items-center gap-3">
+                <Book size={18} className={wordSource === 'MY_LIBRARY' ? 'text-indigo-400' : 'text-slate-500'} />
+                <div className="text-left">
+                   <p className="text-sm font-bold text-white leading-none mb-1">Mi Biblioteca Personal</p>
+                   <p className="text-[10px] text-slate-500 italic">Palabras que tú has creado</p>
+                </div>
+              </div>
+              {wordSource === 'MY_LIBRARY' && <ChevronRight size={16} className="text-indigo-400" />}
+            </button>
+            
+            <div className="h-px bg-slate-700/50 my-1"></div>
+
+            {OFFICIAL_PACKS.map(pack => (
+              <button
+                key={pack.id}
+                onClick={() => setWordSource(pack.id)}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${wordSource === pack.id ? 'bg-purple-600/20 border-purple-500' : 'bg-slate-900/50 border-slate-700 hover:border-slate-600'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <FolderOpen size={18} className={wordSource === pack.id ? 'text-purple-400' : 'text-slate-500'} />
+                  <div className="text-left">
+                     <p className="text-sm font-bold text-white leading-none mb-1">{pack.name}</p>
+                     <p className="text-[10px] text-slate-500 italic">Pack oficial • {pack.difficulty}</p>
+                  </div>
+                </div>
+                {wordSource === pack.id && <ChevronRight size={16} className="text-purple-400" />}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Player Count Card */}
         <div className="w-full bg-slate-800 p-6 rounded-2xl mb-4 shadow-lg border border-slate-700">
-          
-          {/* Player Count Control */}
           <label className="block text-slate-400 mb-4 text-center font-semibold text-xs tracking-widest uppercase">
             Cantidad de Jugadores
           </label>
@@ -148,11 +187,9 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
             <span>20</span>
           </div>
           
-          {/* Divider */}
           <div className="h-px bg-slate-700 w-full mb-6"></div>
 
           <div className="flex flex-col gap-4">
-            {/* Impostor Count Control */}
             <div className="flex items-center justify-between">
                 <label className="text-slate-400 font-semibold text-xs tracking-widest uppercase flex items-center gap-2">
                 <Skull size={16} className="text-red-400" />
@@ -177,7 +214,6 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
                 </div>
             </div>
 
-            {/* Hint Toggle */}
             <div className="flex items-center justify-between">
                 <label className="text-slate-400 font-semibold text-xs tracking-widest uppercase flex items-center gap-2">
                 {useHints ? <Lightbulb size={16} className="text-yellow-400" /> : <LightbulbOff size={16} className="text-slate-500" />}
@@ -194,9 +230,9 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
         </div>
 
         {/* Names List */}
-        <div className="w-full flex-1 min-h-0 flex flex-col mb-4">
+        <div className="w-full mb-6">
             <h3 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider ml-1">Editar Nombres</h3>
-            <div className="grid grid-cols-1 gap-2 overflow-y-auto pr-1 pb-2 custom-scrollbar">
+            <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
                 {customNames.map((name, idx) => (
                     <div key={idx} className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
                         <span className="text-slate-500 text-xs font-mono w-4 text-right">{idx + 1}</span>
@@ -215,8 +251,8 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
             </div>
         </div>
 
-        <div className="flex flex-col w-full gap-3 mt-auto pt-2">
-          <Button onClick={handleStartGame} fullWidth className="py-3 text-lg bg-indigo-600 hover:bg-indigo-500">
+        <div className="flex flex-col w-full gap-3 mt-auto pb-4">
+          <Button onClick={handleStartGame} fullWidth className="py-4 text-lg bg-indigo-600 hover:bg-indigo-500 shadow-xl shadow-indigo-900/40">
             <Play size={20} fill="currentColor" /> Comenzar Partida
           </Button>
           <Button variant="ghost" onClick={onExit} fullWidth className="py-2 text-sm text-slate-500 hover:text-white">
@@ -227,6 +263,7 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
     );
   }
 
+  // Rest of the phases remain the same as they use the selected pool/word...
   if (phase === GamePhase.REVEAL) {
     const currentPlayer = players[turnIndex];
     
@@ -373,7 +410,6 @@ export const GameFlow: React.FC<GameFlowProps> = ({ onExit }) => {
     const mostVoted = players.reduce((prev, current) => (prev.votesReceived > current.votesReceived) ? prev : current);
     const impostorCaught = mostVoted.isImpostor && mostVoted.votesReceived > 0;
     
-    // Check for ties or no votes
     const totalVotes = players.reduce((acc, p) => acc + p.votesReceived, 0);
 
     return (

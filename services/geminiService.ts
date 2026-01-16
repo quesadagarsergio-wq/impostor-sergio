@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { WordPair } from "../types";
 
@@ -13,9 +12,9 @@ export const generateWordPack = async (): Promise<Omit<WordPair, 'id'>[]> => {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: "Genera 5 pares de palabras y pistas para el juego 'El Impostor'. " + 
-                "La 'palabra' es el objeto secreto. La 'pista' es una descripción vaga pero útil que solo ve el impostor. " +
-                "El impostor debe poder fingir que sabe la palabra usando la pista. " +
-                "Ejemplo: Palabra: 'Pizza', Pista: 'Comida redonda popular'. " +
+                "La 'palabra' es el objeto secreto. La 'pista' debe ser OBLIGATORIAMENTE UNA SOLA PALABRA. " +
+                "La pista es una descripción vaga que solo ve el impostor para poder fingir. " +
+                "Ejemplo: Palabra: 'Pizza', Pista: 'Comida'. " +
                 "Evita palabras demasiado complejas. Retorna solo JSON.",
       config: {
         responseMimeType: "application/json",
@@ -25,7 +24,7 @@ export const generateWordPack = async (): Promise<Omit<WordPair, 'id'>[]> => {
             type: Type.OBJECT,
             properties: {
               word: { type: Type.STRING, description: "La palabra secreta" },
-              hint: { type: Type.STRING, description: "La pista para el impostor" }
+              hint: { type: Type.STRING, description: "La pista para el impostor (una sola palabra)" }
             },
             required: ["word", "hint"]
           }

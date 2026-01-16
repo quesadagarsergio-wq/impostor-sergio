@@ -4,6 +4,14 @@ export interface WordPair {
   hint: string;
 }
 
+export interface WordPack {
+  id: string;
+  name: string;
+  description: string;
+  difficulty: 'Fácil' | 'Media' | 'Dificil';
+  words: WordPair[];
+}
+
 export interface Player {
   id: number;
   name: string;
